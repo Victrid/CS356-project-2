@@ -1,0 +1,11 @@
+====== Patching guide ====== 
+
+This folder root is equivalent to the kernel root (i. e. kernel/goldfish), 
+and all added and modified files are put in their folder respectively.
+
+You may use this to apply this patch folder (which is <patch-root>) to the
+original kernel folder (which is <orig-kernel-root>):
+
+	cp -r --remove-destination <patch-root>/* <orig-kernel-root>
+	
+Or use the Makefile in the root folder as instructed.
