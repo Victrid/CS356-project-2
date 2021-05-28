@@ -25,8 +25,6 @@ menuconfig: .build .kernel
 
 clean: .build
 	+make -C ${current_dir}/.kernel O=${current_dir}/.build clean
-	rm -rf .kernel
-	rm -rf .build
 
 deep_clean: .build
 	+make -C ${current_dir}/.kernel O=${current_dir}/.build mrproper
