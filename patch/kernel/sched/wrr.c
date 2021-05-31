@@ -43,6 +43,8 @@ const struct sched_class wrr_sched_class = {
 
 /* 2. Functional tools */
 
+#ifdef CONFIG_WRR_GROUP_SCHED
+
 static inline struct rq* rq_of_wrr_rq(struct wrr_rq* wrr_rq) {
     return wrr_rq->rq;
 }
@@ -50,6 +52,37 @@ static inline struct rq* rq_of_wrr_rq(struct wrr_rq* wrr_rq) {
 static inline struct wrr_rq* wrr_rq_of_se(struct sched_wrr_entity* wrr_se) {
     return wrr_se->wrr_rq;
 }
+
+#define wrr_entity_is_task(wrr_se) (!(wrr_se)->my_q)
+
+static inline struct task_struct*
+wrr_task_of(struct sched_wrr_entity* wrr_se) {
+#ifdef CONFIG_SCHED_DEBUG
+    WARN_ON_ONCE(!wrr_entity_is_task(wrr_se));
+#endif
+    return container_of(wrr_se, struct task_struct, wrr);
+}
+
+#else /* CONFIG_WRR_GROUP_SCHED */
+static inline struct rq* rq_of_wrr_rq(struct wrr_rq* wrr_rq) {
+    return container_of(wrr_rq, struct rq, wrr);
+}
+
+static inline struct wrr_rq* wrr_rq_of_se(struct sched_wrr_entity* wrr_se) {
+    struct task_struct* p = wrr_task_of(wrr_se);
+    struct rq* rq         = task_rq(p);
+
+    return &rq->wrr;
+}
+
+#define wrr_entity_is_task(wrr_se) (1)
+
+static inline struct task_struct*
+wrr_task_of(struct sched_wrr_entity* wrr_se) {
+    return container_of(wrr_se, struct task_struct, wrr);
+}
+
+#endif
 
 static inline int on_wrr_rq(struct sched_wrr_entity* wrr_se) {
     // Check if wrr_se's runlist is empty
@@ -72,14 +105,6 @@ static char* task_group_path(struct task_group* tg) {
     }
     cgroup_path(tg->css.cgroup, group_path, 4096);
     return group_path;
-}
-
-static inline struct task_struct*
-wrr_task_of(struct sched_wrr_entity* wrr_se) {
-#ifdef CONFIG_SCHED_DEBUG
-    WARN_ON_ONCE(!wrr_entity_is_task(wrr_se));
-#endif
-    return container_of(wrr_se, struct task_struct, wrr);
 }
 
 /* ! We also have several macros in the wrr.h */
@@ -230,7 +255,6 @@ static void requeue_task_wrr(struct rq* rq, struct task_struct* p,
 static void enqueue_wrr_entity(struct sched_wrr_entity* wrr_se, bool head) {
     for_each_sched_wrr_entity(wrr_se) {
         struct wrr_rq* wrr_rq   = wrr_rq_of_se(wrr_se);
-        struct list_head* queue = &(wrr_rq->active);
         /* It seems that rt.c here uses some strange never-use code, only get
          * the functional one here. */
         requeue_wrr_entity(wrr_rq, wrr_se, head);
@@ -261,7 +285,6 @@ static void requeue_wrr_entity(struct wrr_rq* wrr_rq,
 static void update_curr_wrr(struct rq* rq) {
     struct task_struct* curr        = rq->curr;
     struct sched_wrr_entity* wrr_se = &curr->wrr;
-    struct wrr_rq* wrr_rq           = wrr_rq_of_se(wrr_se);
     u64 delta_exec;
 
     if (curr->sched_class != &wrr_sched_class)
@@ -317,20 +340,18 @@ static void update_weight(struct sched_wrr_entity* wrr_se) {
     }
 }
 
-static void watchdog(struct rq *rq, struct task_struct *p)
-{
-}
+static void watchdog(struct rq* rq, struct task_struct* p) {}
 
 static inline void inc_wrr_tasks(struct sched_wrr_entity* wrr_se,
                                  struct wrr_rq* wrr_rq) {
-    wrr_rq.total_weight += wrr_se->weight;
-    ++(wrr_rq.wrr_nr_running);
+    wrr_rq->total_weight += wrr_se->weight;
+    ++(wrr_rq->wrr_nr_running);
 }
 
 static inline void dec_wrr_tasks(struct sched_wrr_entity* wrr_se,
                                  struct wrr_rq* wrr_rq) {
-    wrr_rq.total_weight -= wrr_se->weight;
-    --(wrr_rq.wrr_nr_running);
+    wrr_rq->total_weight -= wrr_se->weight;
+    --(wrr_rq->wrr_nr_running);
 }
 
 static inline struct sched_wrr_entity*
@@ -340,22 +361,23 @@ pick_next_wrr_entity(struct rq* rq, struct wrr_rq* wrr_rq) {
 }
 
 /* 5. Dummy functions */
-static int select_task_rq_wrr(struct task_struct * p, int sd_flag,
-                                int flags) {
+#ifdef CONFIG_SMP
+static int select_task_rq_wrr(struct task_struct* p, int sd_flag,
+                              int flags) {
     return 0;
 }
-static void set_cpus_allowed_wrr(struct task_struct * p,
-                                    const struct cpumask* new_mask) {}
-static void rq_online_wrr(struct rq * rq) {}
-static void rq_offline_wrr(struct rq * rq) {}
-static void pre_schedule_wrr(struct rq * rq, struct task_struct * prev) {
-}
-static void post_schedule_wrr(struct rq * rq) {}
-static void task_woken_wrr(struct rq * rq, struct task_struct * p) {}
-static void switched_from_wrr(struct rq * rq, struct task_struct * p) {}
-static void prio_changed_wrr(struct rq * rq, struct task_struct * p,
-                                int oldprio) {}
-static void switched_to_wrr(struct rq * rq, struct task_struct * p) {}
+static void set_cpus_allowed_wrr(struct task_struct* p,
+                                 const struct cpumask* new_mask) {}
+static void rq_online_wrr(struct rq* rq) {}
+static void rq_offline_wrr(struct rq* rq) {}
+static void pre_schedule_wrr(struct rq* rq, struct task_struct* prev) {}
+static void post_schedule_wrr(struct rq* rq) {}
+static void task_woken_wrr(struct rq* rq, struct task_struct* p) {}
+static void switched_from_wrr(struct rq* rq, struct task_struct* p) {}
+#endif /* CONFIG_SMP */
+static void prio_changed_wrr(struct rq* rq, struct task_struct* p,
+                             int oldprio) {}
+static void switched_to_wrr(struct rq* rq, struct task_struct* p) {}
 
 #ifdef CONFIG_SMP
 

@@ -1266,7 +1266,7 @@ struct sched_wrr_entity {
 	/* rq on which this entity is (to be) queued: */
 	struct wrr_rq		*wrr_rq;
 	/* rq "owned" by this entity/group: */
-	struct wrr_rq		*wrr_q;
+	struct wrr_rq		*my_q;
 #endif
 };
 

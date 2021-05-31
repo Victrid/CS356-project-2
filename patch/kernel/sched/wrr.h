@@ -13,13 +13,15 @@
 /* 1. sched class definition */
 
 /* 2. Functional Tools */
+/* These are different depend on setting CONFIG_WRR_GROUP_SCHED */
 static inline struct rq* rq_of_wrr_rq(struct wrr_rq* wrr_rq);
 static inline struct wrr_rq* wrr_rq_of_se(struct sched_wrr_entity* wrr_se);
-static inline int on_wrr_rq(struct sched_wrr_entity* wrr_se);
-static char* task_group_path(struct task_group* tg);
-#define wrr_entity_is_task(rt_se) (!(wrr_se)->my_q)
 static inline struct task_struct*
 wrr_task_of(struct sched_wrr_entity* wrr_se);
+
+static inline int on_wrr_rq(struct sched_wrr_entity* wrr_se);
+static char* task_group_path(struct task_group* tg);
+
 #define for_each_sched_wrr_entity(wrr_se) for (; wrr_se; wrr_se = NULL)
 
 /* 3. Essential functions in sched_class */
@@ -55,7 +57,7 @@ static inline void dec_wrr_tasks(struct sched_wrr_entity* wrr_se,
 static inline struct sched_wrr_entity*
 pick_next_wrr_entity(struct rq* rq, struct wrr_rq* wrr_rq);
 /* 5. Dummy functions */
-
+#ifdef CONFIG_SMP
 static int select_task_rq_wrr(struct task_struct* p, int sd_flag, int flags);
 static void set_cpus_allowed_wrr(struct task_struct* p,
                                  const struct cpumask* new_mask);
@@ -65,6 +67,7 @@ static void pre_schedule_wrr(struct rq* rq, struct task_struct* prev);
 static void post_schedule_wrr(struct rq* rq);
 static void task_woken_wrr(struct rq* rq, struct task_struct* p);
 static void switched_from_wrr(struct rq* rq, struct task_struct* p);
+#endif
 static void prio_changed_wrr(struct rq* rq, struct task_struct* p,
                              int oldprio);
 static void switched_to_wrr(struct rq* rq, struct task_struct* p);

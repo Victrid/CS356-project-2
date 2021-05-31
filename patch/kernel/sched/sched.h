@@ -318,11 +318,10 @@ struct wrr_rq {
 	unsigned long wrr_nr_running;
 	unsigned long total_weight;
 #ifdef CONFIG_WRR_GROUP_SCHED
-	#pragma message( "CONFIG_WRR_GROUP_SCHED defined" )
 	struct rq *rq;
 	struct list_head leaf_wrr_rq_list;
 #else
-	#pragma message( "CONFIG_WRR_GROUP_SCHED not defined" )
+	#pragma message( "!! CONFIG_WRR_GROUP_SCHED not defined" )
 #endif
 };
 
