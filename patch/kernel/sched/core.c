@@ -1723,6 +1723,8 @@ static void __sched_fork(struct task_struct *p)
 #endif
 
 	INIT_LIST_HEAD(&p->rt.run_list);
+	/* as rt do */
+	INIT_LIST_HEAD(&p->wrr.run_list);
 
 #ifdef CONFIG_PREEMPT_NOTIFIERS
 	INIT_HLIST_HEAD(&p->preempt_notifiers);
@@ -1829,6 +1831,7 @@ void wake_up_new_task(struct task_struct *p)
 #endif
 
 	rq = __task_rq_lock(p);
+	//TODO Maybe we need to set the weight here?
 	activate_task(rq, p, 0);
 	p->on_rq = 1;
 	trace_sched_wakeup_new(p, true);
@@ -3982,6 +3985,7 @@ void rt_mutex_setprio(struct task_struct *p, int prio)
 	if (running)
 		p->sched_class->put_prev_task(rq, p);
 
+	/* If we need to set the class here? */
 	if (rt_prio(prio))
 		p->sched_class = &rt_sched_class;
 	else
@@ -4174,6 +4178,8 @@ __setscheduler(struct rq *rq, struct task_struct *p, int policy, int prio)
 	p->normal_prio = normal_prio(p);
 	/* we are holding p->pi_lock already */
 	p->prio = rt_mutex_getprio(p);
+
+	/* If we need to set sched_class here? */
 	if (rt_prio(p->prio))
 		p->sched_class = &rt_sched_class;
 	else
@@ -4221,8 +4227,8 @@ recheck:
 		policy &= ~SCHED_RESET_ON_FORK;
 
 		if (policy != SCHED_FIFO && policy != SCHED_RR &&
-				policy != SCHED_NORMAL && policy != SCHED_BATCH &&
-				policy != SCHED_IDLE)
+			policy != SCHED_WRR && policy != SCHED_NORMAL &&
+			policy != SCHED_BATCH && policy != SCHED_IDLE)
 			return -EINVAL;
 	}
 
@@ -5107,6 +5113,7 @@ void do_set_cpus_allowed(struct task_struct *p, const struct cpumask *new_mask)
 
 	cpumask_copy(&p->cpus_allowed, new_mask);
 	p->rt.nr_cpus_allowed = cpumask_weight(new_mask);
+	p->wrr.nr_cpus_allowed = cpumask_weight(new_mask);
 }
 
 /*
@@ -7143,6 +7150,7 @@ void __init sched_init(void)
 		rq->calc_load_update = jiffies + LOAD_FREQ;
 		init_cfs_rq(&rq->cfs);
 		init_rt_rq(&rq->rt, rq);
+		init_wrr_rq(&rq->wrr, rq);
 #ifdef CONFIG_FAIR_GROUP_SCHED
 		root_task_group.shares = ROOT_TASK_GROUP_LOAD;
 		INIT_LIST_HEAD(&rq->leaf_cfs_rq_list);

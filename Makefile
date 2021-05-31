@@ -10,7 +10,7 @@ CXX=distcc
 all: build 
 
 build: .build .kernel update
-	+make -C ${current_dir}/.kernel O=${current_dir}/.build CONFIG_WRR_GROUP_SCHED=y
+	+make -C ${current_dir}/.kernel O=${current_dir}/.build
 
 update: patch .kernel
 	cp -rs --remove-destination ${current_dir}/patch/* ${current_dir}/.kernel

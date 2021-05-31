@@ -240,6 +240,19 @@ static unsigned int get_rr_interval_wrr(struct rq* rq,
         return 0;
 }
 
+void init_wrr_rq(struct wrr_rq* wrr_rq, struct rq* rq) {
+    INIT_LIST_HEAD(&wrr_rq->active);
+#if defined CONFIG_SMP
+    /* Skip this */
+#endif
+    
+    /* Skip this */
+    // wrr_rq->wrr_time = 0;
+    // wrr_rq->wrr_throttled = 0;
+    // wrr_rq->wrr_runtime = 0;
+    raw_spin_lock_init(&wrr_rq->wrr_runtime_lock);
+}
+
 /* 4. Main implementation */
 static void requeue_task_wrr(struct rq* rq, struct task_struct* p,
                              int head) {
@@ -254,7 +267,7 @@ static void requeue_task_wrr(struct rq* rq, struct task_struct* p,
 
 static void enqueue_wrr_entity(struct sched_wrr_entity* wrr_se, bool head) {
     for_each_sched_wrr_entity(wrr_se) {
-        struct wrr_rq* wrr_rq   = wrr_rq_of_se(wrr_se);
+        struct wrr_rq* wrr_rq = wrr_rq_of_se(wrr_se);
         /* It seems that rt.c here uses some strange never-use code, only get
          * the functional one here. */
         requeue_wrr_entity(wrr_rq, wrr_se, head);

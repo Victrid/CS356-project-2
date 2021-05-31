@@ -41,6 +41,8 @@ static void task_tick_wrr(struct rq* rq, struct task_struct* p, int queued);
 static unsigned int get_rr_interval_wrr(struct rq* rq,
                                         struct task_struct* task);
 
+void init_wrr_rq(struct wrr_rq *wrr_rq, struct rq *rq);
+
 /* 4. Main implementation */
 static void requeue_task_wrr(struct rq* rq, struct task_struct* p, int head);
 static void enqueue_wrr_entity(struct sched_wrr_entity* wrr_se, bool head);

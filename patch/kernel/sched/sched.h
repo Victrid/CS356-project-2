@@ -317,9 +317,19 @@ struct wrr_rq {
 
 	unsigned long wrr_nr_running;
 	unsigned long total_weight;
+#ifdef CONFIG_SMP
+	unsigned long wrr_nr_migratory;
+	unsigned long wrr_nr_total;
+	int overloaded;
+	struct plist_head pushable_tasks;
+#endif
+	/* Nests inside the rq lock: */
+	raw_spinlock_t wrr_runtime_lock;
+
 #ifdef CONFIG_WRR_GROUP_SCHED
 	struct rq *rq;
 	struct list_head leaf_wrr_rq_list;
+	struct task_group *tg;
 #else
 	#pragma message( "!! CONFIG_WRR_GROUP_SCHED not defined" )
 #endif
