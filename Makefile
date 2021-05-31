@@ -10,28 +10,31 @@ CXX=distcc
 all: build 
 
 build: .build .kernel update
-	+make -C ${current_dir}/.kernel O=${current_dir}/.build
+	+make -C ${current_dir}/.kernel O=${current_dir}/.build CONFIG_WRR_GROUP_SCHED=y
 
 update: patch .kernel
-	cp -r --remove-destination ${current_dir}/patch/* ${current_dir}/.kernel
+	cp -rs --remove-destination ${current_dir}/patch/* ${current_dir}/.kernel
 
 .kernel:
 	cp -rs $${KERN} ${current_dir}/.kernel
 	
 
-config: .build .kernel  update
+config: .build .kernel update
 	+make -C ${current_dir}/.kernel O=${current_dir}/.build goldfish_armv7_defconfig \
 	ARCH=arm CROSS_COMPILE=arm-linux-androideabi- 
 
 menuconfig: .build .kernel  update
-	+make -C ${current_dir}/.kernel O=${current_dir}/.build menuconfig
+	+make -C ${current_dir}/.kernel O=${current_dir}/.build menuconfig \
+	ARCH=arm CROSS_COMPILE=arm-linux-androideabi- 
 
 clean: .build
-	+make -C ${current_dir}/.kernel O=${current_dir}/.build clean
+	+make -C ${current_dir}/.kernel O=${current_dir}/.build clean \
+	ARCH=arm CROSS_COMPILE=arm-linux-androideabi- 
 	rm -rf compile_commands.json CMakeLists.txt
 
 deep_clean: .build
-	+make -C ${current_dir}/.kernel O=${current_dir}/.build mrproper
+	+make -C ${current_dir}/.kernel O=${current_dir}/.build mrproper \
+	ARCH=arm CROSS_COMPILE=arm-linux-androideabi- 
 	rm -rf .kernel
 	rm -rf .build
 	rm -rf compile_commands.json CMakeLists.txt
