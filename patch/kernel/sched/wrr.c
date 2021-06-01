@@ -117,6 +117,11 @@ static char* task_group_path(struct task_group* tg) {
 static void enqueue_task_wrr(struct rq* rq, struct task_struct* p,
                              int flags) {
     struct sched_wrr_entity* wrr_se = &p->wrr;
+#ifdef CONFIG_SCHED_DEBUG
+    printk("PID=%d enqueued\n", p->pid);
+#else
+#pragma message("CONFIG_SCHED_DEBUG not defined");
+#endif
 
     /* the enqueue is a wakeup of a sleeping task. ? */
     // if (flags & ENQUEUE_WAKEUP)
@@ -134,7 +139,11 @@ static void enqueue_task_wrr(struct rq* rq, struct task_struct* p,
 static void dequeue_task_wrr(struct rq* rq, struct task_struct* p,
                              int flags) {
     struct sched_wrr_entity* wrr_se = &p->wrr;
-
+#ifdef CONFIG_SCHED_DEBUG
+    printk("PID=%d dequeued\n", p->pid);
+#else
+#pragma message("CONFIG_SCHED_DEBUG not defined");
+#endif
     /* Update the current task's runtime statistics. */
     update_curr_wrr(rq);
 
@@ -179,6 +188,12 @@ static struct task_struct* pick_next_task_wrr(struct rq* rq) {
     p                = wrr_task_of(wrr_se);
     p->se.exec_start = rq->clock_task;
 
+#ifdef CONFIG_SCHED_DEBUG
+    printk("Next task picked %d\n", p->pid);
+#else
+#pragma message("CONFIG_SCHED_DEBUG not defined");
+#endif
+
     return p;
 }
 
@@ -209,6 +224,12 @@ static void task_tick_wrr(struct rq* rq, struct task_struct* p, int queued) {
 
     /*?*/
     watchdog(rq, p);
+#ifdef CONFIG_SCHED_DEBUG
+    printk("PID=%d, time_slice=%d, task_group=%s\n", p->pid,
+           p->wrr.time_slice, task_group_path(task_group(p)));
+#else
+#pragma message("CONFIG_SCHED_DEBUG not defined");
+#endif
 
     /* If time slice has not used up, we just decrease and return */
     if (--(p->wrr.time_slice))
@@ -234,9 +255,14 @@ static unsigned int get_rr_interval_wrr(struct rq* rq,
     /*
      * Time slice is 0 for SCHED_FIFO tasks
      */
-    if (task->policy == SCHED_WRR)
+    if (task->policy == SCHED_WRR) {
+#ifdef CONFIG_SCHED_DEBUG
+        printk("PID=%d, weight=%d\n", task->pid, task->wrr.weight);
+#else
+#pragma message("CONFIG_SCHED_DEBUG not defined");
+#endif
         return task->wrr.weight * WRR_WEIGHT_UNIT;
-    else
+    } else
         return 0;
 }
 
@@ -245,7 +271,7 @@ void init_wrr_rq(struct wrr_rq* wrr_rq, struct rq* rq) {
 #if defined CONFIG_SMP
     /* Skip this */
 #endif
-    
+
     /* Skip this */
     // wrr_rq->wrr_time = 0;
     // wrr_rq->wrr_throttled = 0;
@@ -345,11 +371,17 @@ static void update_weight(struct sched_wrr_entity* wrr_se) {
     if (path[1] == 'b' /*(background)*/ && p->wrr.weight != WRR_BG_WEIGHT) {
         p->wrr.time_slice = WRR_BG_WEIGHT * WRR_WEIGHT_UNIT;
         p->wrr.weight     = WRR_BG_WEIGHT;
+#ifdef CONFIG_SCHED_DEBUG
+        printk("PID=%d switched to background.\n", p->pid);
+#endif
     }
 
     if (path[1] != 'b' /*(front)*/ && p->wrr.weight != WRR_FG_WEIGHT) {
         p->wrr.time_slice = WRR_FG_WEIGHT * WRR_WEIGHT_UNIT;
         p->wrr.weight     = WRR_FG_WEIGHT;
+#ifdef CONFIG_SCHED_DEBUG
+        printk("PID=%d switched to front.\n", p->pid);
+#endif
     }
 }
 

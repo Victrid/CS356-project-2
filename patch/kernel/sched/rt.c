@@ -1074,7 +1074,9 @@ static void __enqueue_rt_entity(struct sched_rt_entity *rt_se, bool head)
 	struct rt_prio_array *array = &rt_rq->active;
 	struct rt_rq *group_rq = group_rt_rq(rt_se);
 	struct list_head *queue = array->queue + rt_se_prio(rt_se);
-
+#ifdef CONFIG_SCHED_DEBUG
+        printk("Reached %s:%d\n", __FILE__, __LINE__);
+#endif
 	/*
 	 * Don't enqueue the group if its throttled, or when empty.
 	 * The latter is a consequence of the former when a child group
@@ -1083,14 +1085,24 @@ static void __enqueue_rt_entity(struct sched_rt_entity *rt_se, bool head)
 	 */
 	if (group_rq && (rt_rq_throttled(group_rq) || !group_rq->rt_nr_running))
 		return;
-
+#ifdef CONFIG_SCHED_DEBUG
+        printk("Reached %s:%d\n", __FILE__, __LINE__);
+#endif
 	if (!rt_rq->rt_nr_running)
 		list_add_leaf_rt_rq(rt_rq);
-
+#ifdef CONFIG_SCHED_DEBUG
+        printk("Reached %s:%d\n", __FILE__, __LINE__);
+#endif
+#ifdef CONFIG_SCHED_DEBUG
+        printk("&rt_se->run_list: %p, queue:%p\n", rt_se->run_list, queue);
+#endif
 	if (head)
 		list_add(&rt_se->run_list, queue);
 	else
 		list_add_tail(&rt_se->run_list, queue);
+#ifdef CONFIG_SCHED_DEBUG
+        printk("Reached %s:%d\n", __FILE__, __LINE__);
+#endif
 	__set_bit(rt_se_prio(rt_se), array->bitmap);
 
 	inc_rt_tasks(rt_se, rt_rq);
@@ -1132,6 +1144,9 @@ static void dequeue_rt_stack(struct sched_rt_entity *rt_se)
 static void enqueue_rt_entity(struct sched_rt_entity *rt_se, bool head)
 {
 	dequeue_rt_stack(rt_se);
+#ifdef CONFIG_SCHED_DEBUG
+        printk("rtse: %p, %s\n",rt_se, head?"HEAD=1":"HEAD=0");
+#endif
 	for_each_sched_rt_entity(rt_se)
 		__enqueue_rt_entity(rt_se, head);
 }
