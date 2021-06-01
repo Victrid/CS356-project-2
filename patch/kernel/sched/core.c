@@ -1700,6 +1700,55 @@ int wake_up_state(struct task_struct *p, unsigned int state)
 	return try_to_wake_up(p, state, 0);
 }
 
+/* This part set the WRR weight respectively */
+
+static char group_path[4096];
+
+static char* task_group_path(struct task_group* tg) {
+    /* From debug.c */
+    if (autogroup_path(tg, group_path, 4096))
+        return group_path;
+
+    /*
+     * May be NULL if the underlying cgroup isn't fully-created yet
+     */
+    if (!tg->css.cgroup) {
+        group_path[0] = '\0';
+        return group_path;
+    }
+    cgroup_path(tg->css.cgroup, group_path, 4096);
+    return group_path;
+}
+
+static int wrr_if_fg(struct task_struct* p){
+	struct task_group* tg = task_group(p);
+    char* path            = task_group_path(tg);
+	return path[1] != 'b';
+}
+
+static void wrr_set_weight(struct task_struct* p){
+	if (!wrr_if_fg(p)) {
+        p->wrr.time_slice = WRR_BG_WEIGHT * WRR_WEIGHT_UNIT;
+        p->wrr.weight     = WRR_BG_WEIGHT;
+#ifdef CONFIG_SCHED_DEBUG
+        printk("PID=%d initially set to background.\n", p->pid);
+#endif
+    }else {
+        p->wrr.time_slice = WRR_FG_WEIGHT * WRR_WEIGHT_UNIT;
+        p->wrr.weight     = WRR_FG_WEIGHT;
+#ifdef CONFIG_SCHED_DEBUG
+        printk("PID=%d initially set to front.\n", p->pid);
+#endif
+    }
+	/* Maybe we shouldn't set the timeslice here. */
+// 	if( p->policy == WRR_SCHED ){
+// 		p->wrr.time_slice = p->wrr.weight * WRR_WEIGHT_UNIT;
+// #ifdef CONFIG_SCHED_DEBUG
+//         printk("PID=%d time_slice init.\n", p->pid);
+// #endif
+// 	}
+}
+
 /*
  * Perform scheduler related setup for a newly forked process p.
  * p is forked by current.
@@ -1831,7 +1880,8 @@ void wake_up_new_task(struct task_struct *p)
 #endif
 
 	rq = __task_rq_lock(p);
-	//TODO Maybe we need to set the weight here?
+	/* Before enqueue we need to set the WRR weight. */
+	wrr_set_weight(p);
 	activate_task(rq, p, 0);
 	p->on_rq = 1;
 	trace_sched_wakeup_new(p, true);
@@ -3176,6 +3226,11 @@ void scheduler_tick(void)
 
 	sched_clock_tick();
 
+#ifdef CONFIG_SCHED_DEBUG
+	/* Print scheduler status */
+	if (curr->policy == SCHED_WRR)
+		printk("PID=%d, WRR_running=%d, %s\n", curr->pid, rq->wrr.wrr_nr_running, wrr_if_fg(curr)?"FG":"BG");
+#endif
 	raw_spin_lock(&rq->lock);
 	update_rq_clock(rq);
 	update_cpu_load_active(rq);
@@ -3985,9 +4040,11 @@ void rt_mutex_setprio(struct task_struct *p, int prio)
 	if (running)
 		p->sched_class->put_prev_task(rq, p);
 
-	/* If we need to set the class here? */
+	/* Set the class here */
 	if (rt_prio(prio))
 		p->sched_class = &rt_sched_class;
+	else if(p->policy == SCHED_WRR)
+		p->sched_class = &wrr_sched_class;
 	else
 		p->sched_class = &fair_sched_class;
 
@@ -4179,9 +4236,11 @@ __setscheduler(struct rq *rq, struct task_struct *p, int policy, int prio)
 	/* we are holding p->pi_lock already */
 	p->prio = rt_mutex_getprio(p);
 
-	/* If we need to set sched_class here? */
+	/* Set the class here */
 	if (rt_prio(p->prio))
 		p->sched_class = &rt_sched_class;
+	else if(p->policy == SCHED_WRR)
+		p->sched_class = &wrr_sched_class;
 	else
 		p->sched_class = &fair_sched_class;
 	set_load_weight(p);
@@ -7084,6 +7143,10 @@ void __init sched_init(void)
 #ifdef CONFIG_RT_GROUP_SCHED
 	alloc_size += 2 * nr_cpu_ids * sizeof(void **);
 #endif
+// No touching these
+// #ifdef CONFIG_WRR_GROUP_SCHED
+// 	alloc_size += 2 * nr_cpu_ids * sizeof(void **);
+// #endif
 #ifdef CONFIG_CPUMASK_OFFSTACK
 	alloc_size += num_possible_cpus() * cpumask_size();
 #endif
@@ -7106,6 +7169,15 @@ void __init sched_init(void)
 		ptr += nr_cpu_ids * sizeof(void **);
 
 #endif /* CONFIG_RT_GROUP_SCHED */
+// No touching these
+// #ifdef CONFIG_WRR_GROUP_SCHED
+// 		root_task_group.wrr_se = (struct sched_wrr_entity **)ptr;
+// 		ptr += nr_cpu_ids * sizeof(void **);
+
+// 		root_task_group.wrr_rq = (struct wrr_rq **)ptr;
+// 		ptr += nr_cpu_ids * sizeof(void **);
+
+// #endif /* CONFIG_WRR_GROUP_SCHED */
 #ifdef CONFIG_CPUMASK_OFFSTACK
 		for_each_possible_cpu(i) {
 			per_cpu(load_balance_tmpmask, i) = (void *)ptr;
