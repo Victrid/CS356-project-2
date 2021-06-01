@@ -362,9 +362,12 @@ static void enqueue_wrr_entity(struct sched_wrr_entity* wrr_se, bool head) {
         struct wrr_rq* wrr_rq = wrr_rq_of_se(wrr_se);
 	    struct wrr_rq *group_rq = group_wrr_rq(wrr_se);
     #ifdef CONFIG_SCHED_DEBUG
-        printk(wrr_rq?"wrr_rq NE\n":"wrr_rq NULL\n");
+        printk(wrr_rq?"wrr_rq EXIST\n":"wrr_rq NULL\n");
         if(wrr_rq==NULL){
-                printk("wrr_se=%p, wrr_rq=%p, rq->wrr=%p\n",wrr_se,wrr_rq,);
+                printk("wrr_se=%p, wrr_rq=%p,\n",wrr_se,wrr_rq);
+                struct task_struct* p = wrr_task_of(wrr_se);
+                struct rq* rq         = task_rq(p);
+                printk("wrr_se.-> p .-> rq ->wrr", &rq->wrr);
         }
     #endif
         /*
@@ -375,12 +378,16 @@ static void enqueue_wrr_entity(struct sched_wrr_entity* wrr_se, bool head) {
         */
         if (group_rq && !group_rq->wrr_nr_running){
     #ifdef CONFIG_SCHED_DEBUG
-        printk("group empty skipped.");
+        printk("group empty skipped.\n");
     #endif
             return;}
         
-        if (!wrr_rq->wrr_nr_running)
+        if (!wrr_rq->wrr_nr_running){
+    #ifdef CONFIG_SCHED_DEBUG
+        printk("list add leaf wrr rq.\n");
+    #endif
 		    list_add_leaf_wrr_rq(wrr_rq);
+		    }
 
         update_weight(wrr_se);
         requeue_wrr_entity(wrr_rq, wrr_se, head);
@@ -498,6 +505,9 @@ void init_tg_wrr_entry(struct task_group *tg, struct wrr_rq *wrr_rq,
 		struct sched_wrr_entity *wrr_se, int cpu,
 		struct sched_wrr_entity *parent)
 {
+#ifdef CONFIG_DEBUG_SCHED
+    printk("Initiating taskgroup wrr entry");
+#endif
 	struct rq *rq = cpu_rq(cpu);
 
 	// wrr_rq->highest_prio.curr = MAX_RT_PRIO;
@@ -507,10 +517,15 @@ void init_tg_wrr_entry(struct task_group *tg, struct wrr_rq *wrr_rq,
 
 	tg->wrr_rq[cpu] = wrr_rq;
 	tg->wrr_se[cpu] = wrr_se;
-
+#ifdef CONFIG_DEBUG_SCHED
+    if(!wrr_se)
+    printk("wrr_se NULL\n");
+#endif
 	if (!wrr_se)
 		return;
-
+#ifdef CONFIG_DEBUG_SCHED
+    printk(parent?"from parent\n":"from rq\n");
+#endif
 	if (!parent)
 		wrr_se->wrr_rq = &rq->wrr;
 	else
@@ -519,6 +534,9 @@ void init_tg_wrr_entry(struct task_group *tg, struct wrr_rq *wrr_rq,
 	wrr_se->my_q = wrr_rq;
 	wrr_se->parent = parent;
 	INIT_LIST_HEAD(&wrr_se->run_list);
+#ifdef CONFIG_DEBUG_SCHED
+    printk("Initiated taskgroup wrr entry");
+#endif
 }
 
 /* 5. Dummy functions */
