@@ -10,6 +10,7 @@ CXX=distcc
 all: build 
 
 build: .build .kernel update utils
+	./compile_counter.py
 	+make -C ${current_dir}/.kernel O=${current_dir}/.build
 
 update: patch .kernel
