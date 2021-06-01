@@ -75,6 +75,7 @@ static inline void list_add_leaf_wrr_rq(struct wrr_rq *wrr_rq)
 }
 
 #else /* CONFIG_WRR_GROUP_SCHED */
+
 static inline struct rq* rq_of_wrr_rq(struct wrr_rq* wrr_rq) {
     return container_of(wrr_rq, struct rq, wrr);
 }
@@ -121,6 +122,7 @@ static char* task_group_path(struct task_group* tg) {
      */
     if (!tg->css.cgroup) {
         group_path[0] = '\0';
+        group_path[1] = '\0';
         return group_path;
     }
     cgroup_path(tg->css.cgroup, group_path, 4096);
