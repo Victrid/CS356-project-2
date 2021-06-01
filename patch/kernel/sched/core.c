@@ -1737,7 +1737,7 @@ static void wrr_set_weight(struct task_struct* p){
 	if( p->policy == SCHED_WRR ){
 		p->wrr.time_slice = p->wrr.weight * WRR_WEIGHT_UNIT;
 #ifdef CONFIG_SCHED_DEBUG
-        printk("PID=%d time_slice init.\n", p->pid);
+        printk("coresched: %s:%d time_slice initiated to %d.\n", p->comm,p->pid， p->wrr.time_slice);
 #endif
 	}
 }
@@ -1815,10 +1815,14 @@ void sched_fork(struct task_struct *p)
 		p->sched_reset_on_fork = 0;
 	}
 
-	if (!rt_prio(p->prio))
-		p->sched_class = &fair_sched_class;
+	/* Forking should keep with it's parent's sched settings */
+    if (!rt_prio(p->prio))
+        if (p->policy == SCHED_WRR)
+            p->sched_class = &wrr_sched_class;
+        else
+            p->sched_class = &fair_sched_class;
 
-	if (p->sched_class->task_fork)
+    if (p->sched_class->task_fork)
 		p->sched_class->task_fork(p);
 
 	/*
@@ -1875,6 +1879,19 @@ void wake_up_new_task(struct task_struct *p)
 	rq = __task_rq_lock(p);
 	/* Before enqueue we need to set the WRR weight. */
 	wrr_set_weight(p);
+#ifdef CONFIG_SCHED_DEBUG
+    if (p->policy == SCHED_WRR && p->sched_class != &wrr_sched_class) {
+        printk("coresched: WARNING: sched class do not match\n\t");
+        if (p->sched_class == &rt_sched_class)
+            printk("Actual: rt\n");
+        else if (p->sched_class == &fair_sched_class)
+            printk("Actual: fair\n");
+        else if (p->sched_class == &wrr_sched_class)
+            printk("Actual: wrr\n");
+        else
+            printk("Actual: unknown\n");
+    }
+#endif
 	activate_task(rq, p, 0);
 	p->on_rq = 1;
 	trace_sched_wakeup_new(p, true);
@@ -4400,12 +4417,14 @@ recheck:
 	prev_class = p->sched_class;
 	__setscheduler(rq, p, policy, param->sched_priority);
 
-	if (running)
-		p->sched_class->set_curr_task(rq);
-	if (on_rq)
-		enqueue_task(rq, p, 0);
+    if (running) {
+        p->sched_class->set_curr_task(rq);
+    }
+    if (on_rq) {
+        enqueue_task(rq, p, 0);
+    }
 
-	check_class_changed(rq, p, prev_class, oldprio);
+    check_class_changed(rq, p, prev_class, oldprio);
 	task_rq_unlock(rq, p, &flags);
 
 	rt_mutex_adjust_pi(p);
