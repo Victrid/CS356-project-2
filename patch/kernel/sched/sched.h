@@ -197,7 +197,10 @@ extern int alloc_rt_sched_group(struct task_group *tg, struct task_group *parent
 extern void init_tg_rt_entry(struct task_group *tg, struct rt_rq *rt_rq,
 		struct sched_rt_entity *rt_se, int cpu,
 		struct sched_rt_entity *parent);
-
+extern void init_tg_wrr_entry(struct task_group *tg, struct wrr_rq *wrr_rq,
+		struct sched_wrr_entity *wrr_se, int cpu,
+		struct sched_wrr_entity *parent);
+		
 #else /* CONFIG_CGROUP_SCHED */
 
 struct cfs_bandwidth { };

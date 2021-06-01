@@ -53,6 +53,11 @@ static inline struct wrr_rq* wrr_rq_of_se(struct sched_wrr_entity* wrr_se) {
     return wrr_se->wrr_rq;
 }
 
+static inline struct wrr_rq *group_wrr_rq(struct sched_wrr_entity *wrr_se)
+{
+	return wrr_se->my_q;
+}
+
 #define wrr_entity_is_task(wrr_se) (!(wrr_se)->my_q)
 
 static inline struct task_struct*
@@ -61,6 +66,12 @@ wrr_task_of(struct sched_wrr_entity* wrr_se) {
     WARN_ON_ONCE(!wrr_entity_is_task(wrr_se));
 #endif
     return container_of(wrr_se, struct task_struct, wrr);
+}
+
+static inline void list_add_leaf_wrr_rq(struct wrr_rq *wrr_rq)
+{
+	list_add_rcu(&wrr_rq->leaf_wrr_rq_list,
+			&rq_of_wrr_rq(wrr_rq)->leaf_wrr_rq_list);
 }
 
 #else /* CONFIG_WRR_GROUP_SCHED */
@@ -75,11 +86,20 @@ static inline struct wrr_rq* wrr_rq_of_se(struct sched_wrr_entity* wrr_se) {
     return &rq->wrr;
 }
 
+static inline struct wrr_rq *group_wrr_rq(struct sched_wrr_entity *wrr_se)
+{
+	return NULL;
+}
+
 #define wrr_entity_is_task(wrr_se) (1)
 
 static inline struct task_struct*
 wrr_task_of(struct sched_wrr_entity* wrr_se) {
     return container_of(wrr_se, struct task_struct, wrr);
+}
+
+static inline void list_add_leaf_wrr_rq(struct wrr_rq *wrr_rq)
+{
 }
 
 #endif
@@ -116,12 +136,10 @@ static char* task_group_path(struct task_group* tg) {
  */
 static void enqueue_task_wrr(struct rq* rq, struct task_struct* p,
                              int flags) {
+    #ifdef CONFIG_SCHED_DEBUG
+        printk("enqueueing wrr %s\n", p->comm);
+    #endif
     struct sched_wrr_entity* wrr_se = &p->wrr;
-#ifdef CONFIG_SCHED_DEBUG
-    printk("PID=%d enqueued\n", p->pid);
-#else
-#pragma message("CONFIG_SCHED_DEBUG not defined");
-#endif
 
     /* the enqueue is a wakeup of a sleeping task. ? */
     // if (flags & ENQUEUE_WAKEUP)
@@ -134,14 +152,17 @@ static void enqueue_task_wrr(struct rq* rq, struct task_struct* p,
     // 	enqueue_pushable_task(rq, p);
 
     inc_nr_running(rq);
+    #ifdef CONFIG_SCHED_DEBUG
+        printk("enqueue wrr finished %s\n", p->comm);
+    #endif
 }
 
 static void dequeue_task_wrr(struct rq* rq, struct task_struct* p,
                              int flags) {
     struct sched_wrr_entity* wrr_se = &p->wrr;
 #ifdef CONFIG_SCHED_DEBUG
-    printk("PID=%d dequeued\n", p->pid);
-#else
+        printk("dequeueing wrr %s\n", p->comm);
+    #else
 #pragma message("CONFIG_SCHED_DEBUG not defined");
 #endif
     /* Update the current task's runtime statistics. */
@@ -153,10 +174,19 @@ static void dequeue_task_wrr(struct rq* rq, struct task_struct* p,
     // dequeue_pushable_task(rq, p);
 
     dec_nr_running(rq);
+#ifdef CONFIG_SCHED_DEBUG
+        printk("dequeued wrr %s\n", p->comm);
+#endif
 }
 
 static void yield_task_wrr(struct rq* rq) {
+#ifdef CONFIG_SCHED_DEBUG
+    printk("yielding wrr_rq\n");
+#endif
     requeue_task_wrr(rq, rq->curr, 0);
+#ifdef CONFIG_SCHED_DEBUG
+    printk("yielded wrr_rq\n");
+#endif
 }
 
 /*
@@ -169,6 +199,9 @@ static void check_preempt_curr_wrr(struct rq* rq, struct task_struct* p,
 
 static struct task_struct* pick_next_task_wrr(struct rq* rq) {
     /* We skip the SMP and pushable task here*/
+#ifdef CONFIG_SCHED_DEBUG
+    printk("Picking next task...\n");
+#endif
     struct sched_wrr_entity* wrr_se;
     struct task_struct* p;
     struct wrr_rq* wrr_rq;
@@ -176,7 +209,11 @@ static struct task_struct* pick_next_task_wrr(struct rq* rq) {
     wrr_rq = &rq->wrr;
 
     if (!wrr_rq->wrr_nr_running)
-        return NULL;
+        {
+#ifdef CONFIG_SCHED_DEBUG
+    printk("No task wrr\n");
+#endif
+            return NULL;}
 
     /* No throttling */
     // if (wrr_rq_throttled(wrr_rq))
@@ -198,6 +235,9 @@ static struct task_struct* pick_next_task_wrr(struct rq* rq) {
 }
 
 static void put_prev_task_wrr(struct rq* rq, struct task_struct* p) {
+#ifdef CONFIG_SCHED_DEBUG
+    printk("Putting prev task %s\n", p->comm);
+#endif
     update_curr_wrr(rq);
 
     /* Pushable task? */
@@ -207,10 +247,15 @@ static void put_prev_task_wrr(struct rq* rq, struct task_struct* p) {
      */
     // if (on_wrr_rq(&p->wrr) && p->wrr.nr_cpus_allowed > 1)
     // 	enqueue_pushable_task(rq, p);
+#ifdef CONFIG_SCHED_DEBUG
+    printk("Put prev task done %s\n", p->comm);
+#endif
 }
 static void set_curr_task_wrr(struct rq* rq) {
     struct task_struct* p = rq->curr;
-
+#ifdef CONFIG_SCHED_DEBUG
+    printk("Setting curr task %s\n", p->comm);
+#endif
     p->se.exec_start = rq->clock_task;
 
     /* Pushable task? */
@@ -219,6 +264,9 @@ static void set_curr_task_wrr(struct rq* rq) {
 }
 
 static void task_tick_wrr(struct rq* rq, struct task_struct* p, int queued) {
+#ifdef CONFIG_SCHED_DEBUG
+    printk("WRR Task tick\n");
+#endif
     struct sched_wrr_entity* wrr_se = &p->wrr;
     update_curr_wrr(rq);
 
@@ -233,8 +281,13 @@ static void task_tick_wrr(struct rq* rq, struct task_struct* p, int queued) {
 
     /* If time slice has not used up, we just decrease and return */
     if (--(p->wrr.time_slice))
-        return;
-
+        {
+#ifdef CONFIG_SCHED_DEBUG
+    printk("WRR task %s dec time_slice:%d\n", p->comm,p->wrr.time_slice);
+#endif
+            return;}
+    
+    /* Renew sched */
     p->wrr.time_slice = p->wrr.weight * WRR_WEIGHT_UNIT;
 
     /*
@@ -244,10 +297,14 @@ static void task_tick_wrr(struct rq* rq, struct task_struct* p, int queued) {
     for_each_sched_wrr_entity(wrr_se) {
         if (wrr_se->run_list.prev != wrr_se->run_list.next) {
             requeue_task_wrr(rq, p, 0);
+#ifdef CONFIG_SCHED_DEBUG
+    printk("WRR Swap task %s\n", p->comm);
+#endif
             set_tsk_need_resched(p);
             return;
         }
     }
+
 }
 
 static unsigned int get_rr_interval_wrr(struct rq* rq,
@@ -267,16 +324,23 @@ static unsigned int get_rr_interval_wrr(struct rq* rq,
 }
 
 void init_wrr_rq(struct wrr_rq* wrr_rq, struct rq* rq) {
+#ifdef CONFIG_SCHED_DEBUG
+    printk("Initiating wrr_rq\n");
+#endif
     INIT_LIST_HEAD(&wrr_rq->active);
 #if defined CONFIG_SMP
     /* Skip this */
 #endif
+    /* Maybe we need to init weight and running? */
 
     /* Skip this */
     // wrr_rq->wrr_time = 0;
     // wrr_rq->wrr_throttled = 0;
     // wrr_rq->wrr_runtime = 0;
     raw_spin_lock_init(&wrr_rq->wrr_runtime_lock);
+#ifdef CONFIG_SCHED_DEBUG
+    printk("Initiated wrr_rq\n");
+#endif
 }
 
 /* 4. Main implementation */
@@ -294,10 +358,30 @@ static void requeue_task_wrr(struct rq* rq, struct task_struct* p,
 static void enqueue_wrr_entity(struct sched_wrr_entity* wrr_se, bool head) {
     for_each_sched_wrr_entity(wrr_se) {
         struct wrr_rq* wrr_rq = wrr_rq_of_se(wrr_se);
-        /* It seems that rt.c here uses some strange never-use code, only get
-         * the functional one here. */
-        requeue_wrr_entity(wrr_rq, wrr_se, head);
+	    struct wrr_rq *group_rq = group_wrr_rq(wrr_se);
+    #ifdef CONFIG_SCHED_DEBUG
+        printk(wrr_rq?"wrr_rq NE\n":"wrr_rq NULL\n");
+        if(wrr_rq==NULL){
+                printk("wrr_se=%p, wrr_rq=%p, rq->wrr=%p\n",wrr_se,wrr_rq,);
+        }
+    #endif
+        /*
+        * Don't enqueue the group when empty.
+        * The latter is a consequence of the former when a child group
+        * get throttled and the current group doesn't have any other
+        * active members.
+        */
+        if (group_rq && !group_rq->wrr_nr_running){
+    #ifdef CONFIG_SCHED_DEBUG
+        printk("group empty skipped.");
+    #endif
+            return;}
+        
+        if (!wrr_rq->wrr_nr_running)
+		    list_add_leaf_wrr_rq(wrr_rq);
+
         update_weight(wrr_se);
+        requeue_wrr_entity(wrr_rq, wrr_se, head);
         inc_wrr_tasks(wrr_se, wrr_rq);
     }
 }
@@ -389,6 +473,9 @@ static void watchdog(struct rq* rq, struct task_struct* p) {}
 
 static inline void inc_wrr_tasks(struct sched_wrr_entity* wrr_se,
                                  struct wrr_rq* wrr_rq) {
+#ifdef CONFIG_SCHED_DEBUG
+        printk("%p, %p\n", wrr_rq, wrr_se);
+#endif
     wrr_rq->total_weight += wrr_se->weight;
     ++(wrr_rq->wrr_nr_running);
 }
@@ -403,6 +490,33 @@ static inline struct sched_wrr_entity*
 pick_next_wrr_entity(struct rq* rq, struct wrr_rq* wrr_rq) {
     return list_first_entry(&(wrr_rq->active), struct sched_wrr_entity,
                             run_list);
+}
+
+void init_tg_wrr_entry(struct task_group *tg, struct wrr_rq *wrr_rq,
+		struct sched_wrr_entity *wrr_se, int cpu,
+		struct sched_wrr_entity *parent)
+{
+	struct rq *rq = cpu_rq(cpu);
+
+	// wrr_rq->highest_prio.curr = MAX_RT_PRIO;
+	// wrr_rq->wrr_nr_boosted = 0;
+	wrr_rq->rq = rq;
+	wrr_rq->tg = tg;
+
+	tg->wrr_rq[cpu] = wrr_rq;
+	tg->wrr_se[cpu] = wrr_se;
+
+	if (!wrr_se)
+		return;
+
+	if (!parent)
+		wrr_se->wrr_rq = &rq->wrr;
+	else
+		wrr_se->wrr_rq = parent->my_q;
+
+	wrr_se->my_q = wrr_rq;
+	wrr_se->parent = parent;
+	INIT_LIST_HEAD(&wrr_se->run_list);
 }
 
 /* 5. Dummy functions */

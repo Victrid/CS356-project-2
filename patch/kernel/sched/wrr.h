@@ -16,8 +16,10 @@
 /* These are different depend on setting CONFIG_WRR_GROUP_SCHED */
 static inline struct rq* rq_of_wrr_rq(struct wrr_rq* wrr_rq);
 static inline struct wrr_rq* wrr_rq_of_se(struct sched_wrr_entity* wrr_se);
+static inline struct wrr_rq *group_wrr_rq(struct sched_wrr_entity *wrr_se);
 static inline struct task_struct*
 wrr_task_of(struct sched_wrr_entity* wrr_se);
+static inline void list_add_leaf_wrr_rq(struct wrr_rq *wrr_rq);
 
 static inline int on_wrr_rq(struct sched_wrr_entity* wrr_se);
 static char* task_group_path(struct task_group* tg);
@@ -41,7 +43,7 @@ static void task_tick_wrr(struct rq* rq, struct task_struct* p, int queued);
 static unsigned int get_rr_interval_wrr(struct rq* rq,
                                         struct task_struct* task);
 
-void init_wrr_rq(struct wrr_rq *wrr_rq, struct rq *rq);
+void init_wrr_rq(struct wrr_rq* wrr_rq, struct rq* rq);
 
 /* 4. Main implementation */
 static void requeue_task_wrr(struct rq* rq, struct task_struct* p, int head);
@@ -58,6 +60,9 @@ static inline void dec_wrr_tasks(struct sched_wrr_entity* wrr_se,
                                  struct wrr_rq* wrr_rq);
 static inline struct sched_wrr_entity*
 pick_next_wrr_entity(struct rq* rq, struct wrr_rq* wrr_rq);
+void init_tg_wrr_entry(struct task_group* tg, struct wrr_rq* wrr_rq,
+                       struct sched_wrr_entity* wrr_se, int cpu,
+                       struct sched_wrr_entity* parent);
 /* 5. Dummy functions */
 #ifdef CONFIG_SMP
 static int select_task_rq_wrr(struct task_struct* p, int sd_flag, int flags);

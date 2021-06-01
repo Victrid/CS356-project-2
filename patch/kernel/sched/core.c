@@ -1730,23 +1730,16 @@ static void wrr_set_weight(struct task_struct* p){
 	if (!wrr_if_fg(p)) {
         p->wrr.time_slice = WRR_BG_WEIGHT * WRR_WEIGHT_UNIT;
         p->wrr.weight     = WRR_BG_WEIGHT;
-#ifdef CONFIG_SCHED_DEBUG
-        printk("PID=%d initially set to background.\n", p->pid);
-#endif
     }else {
         p->wrr.time_slice = WRR_FG_WEIGHT * WRR_WEIGHT_UNIT;
         p->wrr.weight     = WRR_FG_WEIGHT;
-#ifdef CONFIG_SCHED_DEBUG
-        printk("PID=%d initially set to front.\n", p->pid);
-#endif
     }
-	/* Maybe we shouldn't set the timeslice here. */
-// 	if( p->policy == WRR_SCHED ){
-// 		p->wrr.time_slice = p->wrr.weight * WRR_WEIGHT_UNIT;
-// #ifdef CONFIG_SCHED_DEBUG
-//         printk("PID=%d time_slice init.\n", p->pid);
-// #endif
-// 	}
+	if( p->policy == SCHED_WRR ){
+		p->wrr.time_slice = p->wrr.weight * WRR_WEIGHT_UNIT;
+#ifdef CONFIG_SCHED_DEBUG
+        printk("PID=%d time_slice init.\n", p->pid);
+#endif
+	}
 }
 
 /*
@@ -3226,7 +3219,7 @@ void scheduler_tick(void)
 
 	sched_clock_tick();
 
-#ifdef CONFIG_SCHED_DEBUG
+#ifdef CONFIG_WRR_GROUP_SCHED
 	/* Print scheduler status */
 	if (curr->policy == SCHED_WRR)
 		printk("PID=%d, WRR_running=%d, %s\n", curr->pid, rq->wrr.wrr_nr_running, wrr_if_fg(curr)?"FG":"BG");
@@ -7143,10 +7136,9 @@ void __init sched_init(void)
 #ifdef CONFIG_RT_GROUP_SCHED
 	alloc_size += 2 * nr_cpu_ids * sizeof(void **);
 #endif
-// No touching these
-// #ifdef CONFIG_WRR_GROUP_SCHED
-// 	alloc_size += 2 * nr_cpu_ids * sizeof(void **);
-// #endif
+#ifdef CONFIG_WRR_GROUP_SCHED
+	alloc_size += 2 * nr_cpu_ids * sizeof(void **);
+#endif
 #ifdef CONFIG_CPUMASK_OFFSTACK
 	alloc_size += num_possible_cpus() * cpumask_size();
 #endif
@@ -7169,15 +7161,14 @@ void __init sched_init(void)
 		ptr += nr_cpu_ids * sizeof(void **);
 
 #endif /* CONFIG_RT_GROUP_SCHED */
-// No touching these
-// #ifdef CONFIG_WRR_GROUP_SCHED
-// 		root_task_group.wrr_se = (struct sched_wrr_entity **)ptr;
-// 		ptr += nr_cpu_ids * sizeof(void **);
+#ifdef CONFIG_WRR_GROUP_SCHED
+		root_task_group.wrr_se = (struct sched_wrr_entity **)ptr;
+		ptr += nr_cpu_ids * sizeof(void **);
 
-// 		root_task_group.wrr_rq = (struct wrr_rq **)ptr;
-// 		ptr += nr_cpu_ids * sizeof(void **);
+		root_task_group.wrr_rq = (struct wrr_rq **)ptr;
+		ptr += nr_cpu_ids * sizeof(void **);
 
-// #endif /* CONFIG_WRR_GROUP_SCHED */
+#endif /* CONFIG_WRR_GROUP_SCHED */
 #ifdef CONFIG_CPUMASK_OFFSTACK
 		for_each_possible_cpu(i) {
 			per_cpu(load_balance_tmpmask, i) = (void *)ptr;
@@ -7253,6 +7244,10 @@ void __init sched_init(void)
 #ifdef CONFIG_RT_GROUP_SCHED
 		INIT_LIST_HEAD(&rq->leaf_rt_rq_list);
 		init_tg_rt_entry(&root_task_group, &rq->rt, NULL, i, NULL);
+#endif
+#ifdef CONFIG_WRR_GROUP_SCHED
+		INIT_LIST_HEAD(&rq->leaf_wrr_rq_list);
+		init_tg_wrr_entry(&root_task_group, &rq->wrr, NULL, i, NULL);
 #endif
 
 		for (j = 0; j < CPU_LOAD_IDX_MAX; j++)
