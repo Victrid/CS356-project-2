@@ -19,6 +19,7 @@ int main(int argc, char *argv[])
     int t;
     struct sched_param param;
     param.sched_priority = 0;
+    sched_setscheduler(getpid(), 6, &param);
     struct timespec spec1, spec2;
     if (argc == 2){
         forks = atoi(argv[1]);
@@ -35,7 +36,7 @@ int main(int argc, char *argv[])
 loop:
     /* Set to WRR */
     clock_gettime(CLOCK_REALTIME, &spec1);
-    sched_setscheduler(getpid(), 6, &param);
+    
     for(loopind=0;;loopind++){
         if (loopind == 100000000){
             loopind = 0;

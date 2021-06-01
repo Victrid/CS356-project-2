@@ -1279,9 +1279,9 @@ struct sched_wrr_entity {
 /*
  * WRR timeslices, the number is indicated in the requirement.
  */
-#define WRR_WEIGHT_UNIT			(5 * HZ / 1000) /* 5ms */
-#define WRR_FG_WEIGHT			20				/* 100ms */
-#define WRR_BG_WEIGHT			2				/* 10ms */
+#define WRR_WEIGHT_UNIT			(10 * HZ / 1000) /* 5ms */
+#define WRR_FG_WEIGHT			10				/* 100ms */
+#define WRR_BG_WEIGHT			1				/* 10ms */
 
 struct rcu_node;
 

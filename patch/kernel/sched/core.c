@@ -3222,7 +3222,7 @@ void scheduler_tick(void)
 #ifdef CONFIG_WRR_GROUP_SCHED
 	/* Print scheduler status */
 	if (curr->policy == SCHED_WRR)
-		printk("PID=%d, WRR_running=%d, %s\n", curr->pid, rq->wrr.wrr_nr_running, wrr_if_fg(curr)?"FG":"BG");
+		printk("PID=%d, weight=%d, timeslice=%d,%s\n", curr->pid, curr->wrr.weight, curr->wrr.time_slice,wrr_if_fg(curr)?"FG":"BG");
 #endif
 	raw_spin_lock(&rq->lock);
 	update_rq_clock(rq);

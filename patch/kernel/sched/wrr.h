@@ -24,13 +24,13 @@ static inline void list_add_leaf_wrr_rq(struct wrr_rq *wrr_rq);
 static inline int on_wrr_rq(struct sched_wrr_entity* wrr_se);
 static char* task_group_path(struct task_group* tg);
 
-#ifdef CONFIG_WRR_GROUP_SCHED
-#define for_each_sched_wrr_entity(wrr_se) \
-	for (; wrr_se; wrr_se = wrr_se->parent)
-#else
+// #ifdef CONFIG_WRR_GROUP_SCHED
+// #define for_each_sched_wrr_entity(wrr_se) \
+// 	for (; wrr_se; wrr_se = wrr_se->parent)
+// #else
 #define for_each_sched_wrr_entity(wrr_se) \
     for (; wrr_se; wrr_se = NULL)
-#endif
+// #endif
 
 /* 3. Essential functions in sched_class */
 
