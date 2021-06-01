@@ -1737,7 +1737,7 @@ static void wrr_set_weight(struct task_struct* p){
 	if( p->policy == SCHED_WRR ){
 		p->wrr.time_slice = p->wrr.weight * WRR_WEIGHT_UNIT;
 #ifdef CONFIG_SCHED_DEBUG
-        printk("coresched: %s:%d time_slice initiated to %d.\n", p->comm,p->pid， p->wrr.time_slice);
+        printk("coresched: %s:%d time_slice initiated to %d.\n", p->comm,p->pid, p->wrr.time_slice);
 #endif
 	}
 }
