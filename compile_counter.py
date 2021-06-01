@@ -8,7 +8,30 @@ try:
     f.close()
 except FileNotFoundError:
     num = 0
-print("You've compiled "+str(num) + " times!")
+tr = """
+-----------------------------------------------------------
+               The damned penguin warns:
+-----------------------------------------------------------
+         _nnnn_                      
+        dGGGGMMb     ,''''''''''''''''''''''''''''''''''.
+       @p~qp~~qMb    | Damn you've compiled this kernel |
+       M|\|| /|M|   _|      """
+bg=                          """ fuckin' times!         |
+       @,----.JM| -' ;..................................'
+      JS^\_|_/ qKL
+     dZP  -^-   qKRb
+    dZP          qKKb
+   fZP            SMMb
+   HZM            MMMM
+   FqM            MMMM
+ __| ".        |\dS"qML
+ |    `.       | `' \Zq
+_)      \.___.,|     .'
+\____   )MMMMMM|   .'
+     `-'       `--'
+-----------------------------------------------------------
+"""
+print(tr+str(num).ljust(4) +bg)
 num += 1
 f = open("counter", "w+")
 f.write(str(num))

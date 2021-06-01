@@ -28,7 +28,7 @@ menuconfig: .build .kernel  update
 	+make -C ${current_dir}/.kernel O=${current_dir}/.build menuconfig \
 	ARCH=arm CROSS_COMPILE=arm-linux-androideabi- 
 
-clean: .build .build_x
+clean: .build
 	+make -C ${current_dir}/.kernel O=${current_dir}/.build clean \
 	ARCH=arm CROSS_COMPILE=arm-linux-androideabi- 
 	rm -rf compile_commands.json CMakeLists.txt
