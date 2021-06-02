@@ -7,11 +7,21 @@ current_dir = $(shell pwd)
 CC=distcc
 CXX=distcc
 
-all: build 
+all:
+	+make build
+	+make build_nodebug
 
-build: .build .kernel update utils
+build: .kernel update config utils
 	./compile_counter.py
 	+make -C ${current_dir}/.kernel O=${current_dir}/.build
+	cp ${current_dir}/.build/arch/arm/boot/zImage zImages/debug_zImage
+
+build_nodebug: .kernel update utils
+	./compile_counter.py
+	+make -C ${current_dir}/.kernel O=${current_dir}/.build goldfish_armv7_nodebug_defconfig \
+	ARCH=arm CROSS_COMPILE=arm-linux-androideabi- 
+	+make -C ${current_dir}/.kernel O=${current_dir}/.build
+	cp ${current_dir}/.build/arch/arm/boot/zImage zImages/nodebug_zImage
 
 update: patch .kernel
 	cp -rs --remove-destination ${current_dir}/patch/* ${current_dir}/.kernel
@@ -32,6 +42,7 @@ clean: .build
 	+make -C ${current_dir}/.kernel O=${current_dir}/.build clean \
 	ARCH=arm CROSS_COMPILE=arm-linux-androideabi- 
 	rm -rf compile_commands.json CMakeLists.txt
+	rm -rf zImages/debug_zImage zImages/nodebug_zImage
 	+make -C utils clean
 
 deep_clean: .build

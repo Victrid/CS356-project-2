@@ -81,6 +81,13 @@ static inline int on_wrr_rq(struct sched_wrr_entity* wrr_se) {
     return !list_empty(&wrr_se->run_list);
 }
 
+#ifndef CONFIG_SCHED_DEBUG
+static inline int autogroup_path(struct task_group *tg, char *buf, int buflen)
+{
+	return 0;
+}
+#endif
+
 static char group_path[4096];
 
 static char* task_group_path(struct task_group* tg) {

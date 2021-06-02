@@ -1702,6 +1702,13 @@ int wake_up_state(struct task_struct *p, unsigned int state)
 
 /* This part set the WRR weight respectively */
 
+#ifndef CONFIG_SCHED_DEBUG
+static inline int autogroup_path(struct task_group *tg, char *buf, int buflen)
+{
+	return 0;
+}
+#endif
+
 static char group_path[4096];
 
 static char* task_group_path(struct task_group* tg) {
@@ -1728,10 +1735,8 @@ static int wrr_if_fg(struct task_struct* p){
 
 static void wrr_set_weight(struct task_struct* p){
 	if (!wrr_if_fg(p)) {
-        p->wrr.time_slice = WRR_BG_WEIGHT * WRR_WEIGHT_UNIT;
         p->wrr.weight     = WRR_BG_WEIGHT;
     }else {
-        p->wrr.time_slice = WRR_FG_WEIGHT * WRR_WEIGHT_UNIT;
         p->wrr.weight     = WRR_FG_WEIGHT;
     }
 	if( p->policy == SCHED_WRR ){
@@ -3236,11 +3241,6 @@ void scheduler_tick(void)
 
 	sched_clock_tick();
 
-#ifdef CONFIG_WRR_GROUP_SCHED
-	/* Print scheduler status */
-	if (curr->policy == SCHED_WRR)
-		printk("PID=%d, weight=%d, timeslice=%d,%s\n", curr->pid, curr->wrr.weight, curr->wrr.time_slice,wrr_if_fg(curr)?"FG":"BG");
-#endif
 	raw_spin_lock(&rq->lock);
 	update_rq_clock(rq);
 	update_cpu_load_active(rq);
