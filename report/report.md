@@ -1,4 +1,4 @@
- # Report: Weighted Round-Robin scheduler
+# Report: Weighted Round-Robin scheduler
 
 ## Introduction
 
@@ -58,3 +58,14 @@ In order to add our WRR scheduler to the kernel, we need to make some adjustment
 
 ### Testing utilities
 
+In order to test the scheduler more easily, we wrote two utilities `lshed` and `chshed`. By using the system calls `sched_setscheduler()` and `sched_rr_get_interval()`, the former can output the used scheduler and time slice information based on the input PID, and the latter can change the scheduler and scheduling parameters for a specific PID.
+
+Since the given `processtest.apk` is not very comprehensive in what it tests, we also wrote a `proctest` test program that forks a specified number of test processes and specifies their schedulers and scheduling parameters. The test process simulates a common CPU burst / IO burst loop, waiting for a certain number of seconds (simulates an IO waiting) after a large number of adding loop (which is a CPU burst), and print out the loop time.
+
+## Test Results
+
+## Bonus Part
+
+### Adjustable Weight
+
+### Scheduler comparison
