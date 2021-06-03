@@ -1,5 +1,7 @@
 # Report: Weighted Round-Robin scheduler
 
+{{TOC}}
+
 ## Introduction
 
 CPU scheduling is the basis of multiprogrammed operating systems. By switching the CPU among processes, the operating system can make the computer more productive[quote here: OSC, 8th, 183]. The Linux kernel, and the Android OS built on top of it, uses both First-in-First-out (**FIFO**) queuing and round robin (**RR**) strategies to build its real-time tasks scheduler, and the completely fair scheduling (**CFS**) algorithm to build its default task scheduler. We implement here a weighted round robin (**WRR**) scheduler and compare the typical features of different schedulers.
@@ -58,14 +60,30 @@ In order to add our WRR scheduler to the kernel, we need to make some adjustment
 
 ### Testing utilities
 
-In order to test the scheduler more easily, we wrote two utilities `lshed` and `chshed`. By using the system calls `sched_setscheduler()` and `sched_rr_get_interval()`, the former can output the used scheduler and time slice information based on the input PID, and the latter can change the scheduler and scheduling parameters for a specific PID.
+In order to test the scheduler more easily, we wrote two utilities `lshed` and `chshed`. By using the system calls `sched_setscheduler` and `sched_rr_get_interval`, the former can output the used scheduler and time slice information based on the input PID, and the latter can change the scheduler and scheduling parameters for a specific PID.
 
 Since the given `processtest.apk` is not very comprehensive in what it tests, we also wrote a `proctest` test program that forks a specified number of test processes and specifies their schedulers and scheduling parameters. The test process simulates a common CPU burst / IO burst loop, waiting for a certain number of seconds (simulates an IO waiting) after a large number of adding loop (which is a CPU burst), and print out the loop time.
 
 ## Test Results
 
-## Bonus Part
+## Additional Part
+
+### Throttle Mechanism
+
+Because the main scheduler is scheduled sequentially, i.e. the later scheduler will be called only when the previous one has finished scheduling. Therefore, when intensive tasks are executed with WRR policy, it will be difficult for the CFS scheduler immediately after it to get time for running. Since the vast majority of the system's tasks, including `adb`, display, and control, are executed under the CFS scheduler, this will make the entire virtual machine not responding.
+
+Following the example of the throttle mechanism in the real-time scheduler, we have introduced this mechanism in the WRR scheduler to share more runtime with other schedulers (i.e. CFS scheduler).
 
 ### Adjustable Weight
 
-### Scheduler comparison
+There are many programs, especially those executing on the linux level (the other example is the android level), that do not use task groups to distinguish themselves. For example, the android debug bridge, and all programs forked from the adb shell, behave as so-called foreground programs. This degrades the WRR scheduler to a normal RR scheduler in most situations.
+
+Therefore we modified the implementation functions behind the `sched_setscheduler` and `sched_setparam` system calls, and also modified `sched_wrr_entity` appropriately to enable flexible adjustment of the weights. Since the `sched_param` structure is defined in the GNU C library and not in the kernel, it is difficult to adjust the contents of this structure, so we have reused the priority in the configuration real-time task. Setting this value to a non-negative value manually adjusts the weight of the task, while setting it to 0 restores the original weighting convention.
+
+This feature is critical to utilize the WRR scheduler’s full ability, and is applied in the comparison of scheduler features that follows.
+
+### Scheduler Comparison
+
+## Achievements
+
+Through this project, I have gained a deeper understanding of the scheduler in the linux kernel. By combining kernel-level programming with application-level programming, I gradually understood their similarities and differences. It was especially gratifying to see that my additions to the kernel could be performed and called correctly by the outer programs. From understanding the implementation of a large project, to editing, compiling and debugging it, them all forms a great challenge which could not be found in past practical courses, and I think this project is very practical and instructive for future programming practice.
