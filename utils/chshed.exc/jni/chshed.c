@@ -47,12 +47,17 @@ int main() {
     printf("Current scheduling algorithm is %s\n", policychecker(policy));
     printf("Please input the PID of the process: ");
     scanf("%d", &pid);
-    if (policy != 6) {
+    if (policy == 1 || policy == 2) {
         printf("Set process's priority (1-99): ");
         scanf("%d", &prio);
         param.sched_priority = prio;
-    } else
+    } else if (policy == 0)
         param.sched_priority = 0;
+    else if (policy == 6) {
+        printf("Set WRR weight (zero for default): ");
+        scanf("%d", &prio);
+        param.sched_priority = prio;
+    }
 
     if (sched_setscheduler(pid, policy, &param)) {
         printf("Changing failed: %s\n", strerror(errno));

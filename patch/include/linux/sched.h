@@ -1257,6 +1257,10 @@ struct sched_wrr_entity {
 	
 	unsigned int time_slice;
 	unsigned int weight;
+	/* custom_weight indicates that weight should
+	 * not be edited. 
+	*/
+	unsigned int custom_weight;
 	// unsigned long timeout;
 	// int nr_cpus_allowed;
 

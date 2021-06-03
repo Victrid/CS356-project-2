@@ -1734,17 +1734,20 @@ static int wrr_if_fg(struct task_struct* p){
 }
 
 static void wrr_set_weight(struct task_struct* p){
-	if (!wrr_if_fg(p)) {
-        p->wrr.weight     = WRR_BG_WEIGHT;
-    }else {
-        p->wrr.weight     = WRR_FG_WEIGHT;
+    if (!p->wrr.custom_weight) {
+        if (!wrr_if_fg(p)) {
+            p->wrr.weight = WRR_BG_WEIGHT;
+        } else {
+            p->wrr.weight = WRR_FG_WEIGHT;
+        }
     }
-	if( p->policy == SCHED_WRR ){
-		p->wrr.time_slice = p->wrr.weight * WRR_WEIGHT_UNIT;
+    if (p->policy == SCHED_WRR) {
+        p->wrr.time_slice = p->wrr.weight * WRR_WEIGHT_UNIT;
 #ifdef CONFIG_SCHED_DEBUG
-        printk("coresched: %s:%d time_slice initiated to %d.\n", p->comm,p->pid, p->wrr.time_slice);
+        printk("coresched: %s:%d time_slice initiated to %d.\n", p->comm,
+               p->pid, p->wrr.time_slice);
 #endif
-	}
+    }
 }
 
 /*
@@ -4241,8 +4244,20 @@ static void
 __setscheduler(struct rq *rq, struct task_struct *p, int policy, int prio)
 {
 	p->policy = policy;
-	p->rt_priority = prio;
-	p->normal_prio = normal_prio(p);
+    if (policy != SCHED_WRR)
+        p->rt_priority = prio;
+    else {
+        /* This can only be 0. */
+        p->rt_priority = 0;
+        if (prio) {
+            p->wrr.weight        = prio;
+            p->wrr.custom_weight = 1;
+        } else {
+            p->wrr.weight        = 1;
+            p->wrr.custom_weight = 0;
+        }
+    }
+    p->normal_prio = normal_prio(p);
 	/* we are holding p->pi_lock already */
 	p->prio = rt_mutex_getprio(p);
 
@@ -4310,10 +4325,11 @@ recheck:
 	    (p->mm && param->sched_priority > MAX_USER_RT_PRIO-1) ||
 	    (!p->mm && param->sched_priority > MAX_RT_PRIO-1))
 		return -EINVAL;
-	if (rt_policy(policy) != (param->sched_priority != 0))
-		return -EINVAL;
+    if (rt_policy(policy) != (param->sched_priority != 0))
+        if (!(policy == SCHED_WRR && param->sched_priority > 0))
+            return -EINVAL;
 
-	/*
+    /*
 	 * Allow unprivileged RT tasks to decrease priority:
 	 */
 	if (user && !capable(CAP_SYS_NICE)) {

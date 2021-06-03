@@ -1,7 +1,7 @@
 # The kernel compile makefile
 # This file will build the kernel into the build directory in this file.
 # Please set the KERN environment variable before making
-.PHONY: all build update config menuconfig clean deep_clean utils
+.PHONY: all build update config menuconfig clean deep_clean utils push report
 
 current_dir = $(shell pwd)
 CC=distcc
@@ -44,8 +44,9 @@ clean: .build
 	rm -rf compile_commands.json CMakeLists.txt
 	rm -rf zImages/debug_zImage zImages/nodebug_zImage
 	+make -C utils clean
+	+make -C report clean
 
-deep_clean: .build
+deep_clean: clean
 	+make -C ${current_dir}/.kernel O=${current_dir}/.build mrproper \
 	ARCH=arm CROSS_COMPILE=arm-linux-androideabi- 
 	rm -rf .kernel
@@ -57,6 +58,12 @@ deep_clean: .build
 	
 utils:
 	+make -C utils
+
+push:
+	+make -C utils push
+
+report:
+	+make -C report
 
 _cmakefile:
 # This is a dirty hack used to generate cmakefiles, just for IDE hinting

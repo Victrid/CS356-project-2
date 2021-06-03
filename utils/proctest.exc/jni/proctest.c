@@ -17,6 +17,7 @@ int main(int argc, char* argv[]) {
     int loopind = 0;
     int t, vt;
     int r;
+    int stepgn = 3;
     char c[20];
     vt = 6;
     struct sched_param param;
@@ -29,6 +30,9 @@ int main(int argc, char* argv[]) {
     if (argc >= 3)
         vt = atoi(argv[2]);
 
+    if(argc >= 4)
+        stepgn = atoi(argv[3]);
+
     // Set this daemon to the highest priority,
     // or it will be stuck
     if (sched_setscheduler(getpid(), 1, &param)) {
@@ -39,7 +43,13 @@ int main(int argc, char* argv[]) {
         pid = fork();
         if (pid != 0)
             continue;
-        param.sched_priority = (vt == 1 || vt == 2 )? t + 5 : 0;
+        if (vt == 1 || vt == 2) {
+            param.sched_priority = stepgn * t + 5;
+        } else if (vt == 6) {
+            param.sched_priority = stepgn * (t + 5);
+        } else {
+            param.sched_priority = 0;
+        }
         if (sched_setscheduler(getpid(), vt, &param)) {
             printf("s%d:%s\n", t, strerror(errno));
         }
@@ -53,7 +63,7 @@ loop:
     clock_gettime(CLOCK_REALTIME, &spec1);
 
     for (loopind = 0;; loopind++) {
-        if (loopind == 10000000) {
+        if (loopind == 40000000) {
             loopind = 0;
             clock_gettime(CLOCK_REALTIME, &spec2);
             printf("PID=%d ", getpid());

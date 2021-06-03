@@ -7,6 +7,7 @@
 
 #include "sched.h"
 #include <linux/slab.h>
+#include <linux/time.h> /* Used for throttle */
 
 #endif
 
@@ -82,9 +83,9 @@ static inline int on_wrr_rq(struct sched_wrr_entity* wrr_se) {
 }
 
 #ifndef CONFIG_SCHED_DEBUG
-static inline int autogroup_path(struct task_group *tg, char *buf, int buflen)
-{
-	return 0;
+static inline int autogroup_path(struct task_group* tg, char* buf,
+                                 int buflen) {
+    return 0;
 }
 #endif
 
@@ -117,7 +118,7 @@ static char* task_group_path(struct task_group* tg) {
 static void enqueue_task_wrr(struct rq* rq, struct task_struct* p,
                              int flags) {
 #ifdef CONFIG_SCHED_DEBUG
-    printk("wrrsched: enqueue %s:%d\n", p->comm, p->pid);
+    // printk("wrrsched: enqueue %s:%d\n", p->comm, p->pid);
 #endif
     struct sched_wrr_entity* wrr_se = &p->wrr;
 
@@ -128,7 +129,7 @@ static void enqueue_task_wrr(struct rq* rq, struct task_struct* p,
 static void dequeue_task_wrr(struct rq* rq, struct task_struct* p,
                              int flags) {
 #ifdef CONFIG_SCHED_DEBUG
-    printk("wrrsched: dequeue %s:%d\n", p->comm, p->pid);
+    // printk("wrrsched: dequeue %s:%d\n", p->comm, p->pid);
 #endif
     struct sched_wrr_entity* wrr_se = &p->wrr;
 
@@ -162,9 +163,8 @@ static struct task_struct* pick_next_task_wrr(struct rq* rq) {
         return NULL;
     }
 
-    /* No throttling */
-    // if (wrr_rq_throttled(wrr_rq))
-    // 	return NULL;
+    if (wrr_throttled())
+    	return NULL;
 
     wrr_se = pick_next_wrr_entity(rq, wrr_rq);
     BUG_ON(!wrr_se);
@@ -173,7 +173,7 @@ static struct task_struct* pick_next_task_wrr(struct rq* rq) {
     p->se.exec_start = rq->clock_task;
 
 #ifdef CONFIG_SCHED_DEBUG
-    printk("wrrsched: picked next task: %s:%d\n", p->comm, p->pid);
+    // printk("wrrsched: picked next task: %s:%d\n", p->comm, p->pid);
 #endif
 
     return p;
@@ -181,7 +181,7 @@ static struct task_struct* pick_next_task_wrr(struct rq* rq) {
 
 static void put_prev_task_wrr(struct rq* rq, struct task_struct* p) {
 #ifdef CONFIG_SCHED_DEBUG
-    printk("wrrsched: put previous task %s:%d\n", p->comm, p->pid);
+    // printk("wrrsched: put previous task %s:%d\n", p->comm, p->pid);
 #endif
     update_curr_wrr(rq);
 }
@@ -190,7 +190,7 @@ static void set_curr_task_wrr(struct rq* rq) {
 
     p->se.exec_start = rq->clock_task;
 #ifdef CONFIG_SCHED_DEBUG
-    printk("wrrsched: set current task %s:%d\n", p->comm, p->pid);
+    // printk("wrrsched: set current task %s:%d\n", p->comm, p->pid);
 #endif
 }
 
@@ -205,8 +205,8 @@ static void task_tick_wrr(struct rq* rq, struct task_struct* p, int queued) {
     /*?*/
     watchdog(rq, p);
 #ifdef CONFIG_SCHED_DEBUG
-    printk("wrrsched: %s:%d: time_slice=%d, task_group=%s\n", p->comm, p->pid,
-           p->wrr.time_slice, task_group_path(task_group(p)));
+    printk("wrrsched: %s:%d: time_slice=%d, task_group=%s\n", p->comm,
+           p->pid, p->wrr.time_slice, task_group_path(task_group(p)));
 #endif
 
     if (p->wrr.time_slice <= 0) {
@@ -224,8 +224,9 @@ static void task_tick_wrr(struct rq* rq, struct task_struct* p, int queued) {
     /* Renew sched */
     p->wrr.time_slice = p->wrr.weight * WRR_WEIGHT_UNIT;
 #ifdef CONFIG_SCHED_DEBUG
-printk("wrrsched: %s:%d: refreshed time_slice=%d, task_group=%s\n", p->comm, p->pid,
-           p->wrr.time_slice, task_group_path(task_group(p)));
+    printk("wrrsched: %s:%d: refreshed time_slice=%d, task_group=%s\n",
+           p->comm, p->pid, p->wrr.time_slice,
+           task_group_path(task_group(p)));
 #endif
 
     /*
@@ -233,7 +234,7 @@ printk("wrrsched: %s:%d: refreshed time_slice=%d, task_group=%s\n", p->comm, p->
      * only element on the queue
      */
     for_each_sched_wrr_entity(wrr_se) {
-        if (wrr_se->run_list.prev != wrr_se->run_list.next) {
+        if (wrr_se->run_list.prev != wrr_se->run_list.next || wrr_throttled()) {
             requeue_task_wrr(rq, p, 0);
 #ifdef CONFIG_SCHED_DEBUG
             printk("wrrsched: retire %s:%d\n", p->comm, p->pid);
@@ -246,13 +247,7 @@ printk("wrrsched: %s:%d: refreshed time_slice=%d, task_group=%s\n", p->comm, p->
 
 static unsigned int get_rr_interval_wrr(struct rq* rq,
                                         struct task_struct* task) {
-    /*
-     * Time slice is 0 for SCHED_FIFO tasks
-     */
-    if (task->policy == SCHED_WRR) {
         return task->wrr.weight * WRR_WEIGHT_UNIT;
-    } else
-        return 0;
 }
 
 void init_wrr_rq(struct wrr_rq* wrr_rq, struct rq* rq) {
@@ -267,6 +262,12 @@ void init_wrr_rq(struct wrr_rq* wrr_rq, struct rq* rq) {
 }
 
 /* 4. Main implementation */
+static int wrr_throttled(void){
+    unsigned int r;
+    r = CURRENT_TIME.tv_nsec % 100;
+    return  r <= 71;
+}
+
 static void requeue_task_wrr(struct rq* rq, struct task_struct* p,
                              int head) {
     struct sched_wrr_entity* wrr_se = &p->wrr;
@@ -298,6 +299,9 @@ static void enqueue_wrr_entity(struct sched_wrr_entity* wrr_se, bool head) {
         }
 
         update_weight(wrr_se);
+        /* Fill the time_slice */
+        wrr_task_of(wrr_se)->wrr.time_slice =
+            wrr_task_of(wrr_se)->wrr.weight * WRR_WEIGHT_UNIT;
         requeue_wrr_entity(wrr_rq, wrr_se, head);
         inc_wrr_tasks(wrr_se, wrr_rq);
     }
@@ -305,49 +309,43 @@ static void enqueue_wrr_entity(struct sched_wrr_entity* wrr_se, bool head) {
 static void dequeue_wrr_entity(struct sched_wrr_entity* wrr_se) {
     list_del_init(&wrr_se->run_list);
 #ifdef CONFIG_SCHED_DEBUG
-    {
-        struct sched_wrr_entity* traverse;
-        int t = 0;
-        printk("wrrsched: current list:\n\t");
-        list_for_each_entry(traverse, &(wrr_rq_of_se(wrr_se))->active,
-                            run_list) {
-            printk("%s:%d, ", wrr_task_of(traverse)->comm,wrr_task_of(traverse)->pid);
-            t += 1;
-        }
-        printk(" -> total: %d\n", t);
-    }
+    // {
+    //     struct sched_wrr_entity* traverse;
+    //     int t = 0;
+    //     printk("wrrsched: current list:\n\t");
+    //     list_for_each_entry(traverse, &(wrr_rq_of_se(wrr_se))->active,
+    //                         run_list) {
+    //         printk("%s:%d, ", wrr_task_of(traverse)->comm,
+    //                wrr_task_of(traverse)->pid);
+    //         t += 1;
+    //     }
+    //     printk(" -> total: %d\n", t);
+    // }
 #endif
     dec_wrr_tasks(wrr_se, wrr_rq_of_se(wrr_se));
 }
 
 static void requeue_wrr_entity(struct wrr_rq* wrr_rq,
                                struct sched_wrr_entity* wrr_se, int head) {
-    if (!on_wrr_rq(wrr_se)) /* Missed a exclamation mark */ {
-        struct list_head* queue = &(wrr_rq->active);
+    struct list_head* queue = &(wrr_rq->active);
 
-        if (head)
-            list_move(&wrr_se->run_list, queue);
-        else
-            list_move_tail(&wrr_se->run_list, queue);
-    }else{
-        struct list_head* queue = &(wrr_rq->active);
+    if (head)
+        list_move(&wrr_se->run_list, queue);
+    else
+        list_move_tail(&wrr_se->run_list, queue);
 
-        if (head)
-            list_move(&wrr_se->run_list, queue);
-        else
-            list_move_tail(&wrr_se->run_list, queue);
-    }
 #ifdef CONFIG_SCHED_DEBUG
-    {
-        struct sched_wrr_entity* traverse;
-        int t = 0;
-        printk("wrrsched: current list:\n\t");
-        list_for_each_entry(traverse, &wrr_rq->active, run_list) {
-            printk("%s:%d, ", wrr_task_of(traverse)->comm,wrr_task_of(traverse)->pid);
-            t += 1;
-        }
-        printk(" -> total: %d\n", t);
-    }
+    // {
+    //     struct sched_wrr_entity* traverse;
+    //     int t = 0;
+    //     printk("wrrsched: current list:\n\t");
+    //     list_for_each_entry(traverse, &wrr_rq->active, run_list) {
+    //         printk("%s:%d, ", wrr_task_of(traverse)->comm,
+    //                wrr_task_of(traverse)->pid);
+    //         t += 1;
+    //     }
+    //     printk(" -> total: %d\n", t);
+    // }
 #endif
 }
 /*
@@ -381,20 +379,22 @@ static void update_weight(struct sched_wrr_entity* wrr_se) {
     struct task_struct* p = wrr_task_of(wrr_se);
     struct task_group* tg = task_group(p);
     char* path            = task_group_path(tg);
-    if (path[1] == 'b' /*(background)*/ && p->wrr.weight != WRR_BG_WEIGHT) {
-        p->wrr.time_slice = WRR_BG_WEIGHT * WRR_WEIGHT_UNIT;
-        p->wrr.weight     = WRR_BG_WEIGHT;
+    if (!p->wrr.custom_weight) {
+        if (path[1] == 'b' /*(background)*/ &&
+            p->wrr.weight != WRR_BG_WEIGHT) {
+            p->wrr.weight = WRR_BG_WEIGHT;
 #ifdef CONFIG_SCHED_DEBUG
-        printk("wrrsched: %s:%d switched to background.\n", p->comm,p->pid);
+            printk("wrrsched: %s:%d switched to background.\n", p->comm,
+                   p->pid);
 #endif
-    }
+        }
 
-    if (path[1] != 'b' /*(front)*/ && p->wrr.weight != WRR_FG_WEIGHT) {
-        p->wrr.time_slice = WRR_FG_WEIGHT * WRR_WEIGHT_UNIT;
-        p->wrr.weight     = WRR_FG_WEIGHT;
+        if (path[1] != 'b' /*(front)*/ && p->wrr.weight != WRR_FG_WEIGHT) {
+            p->wrr.weight = WRR_FG_WEIGHT;
 #ifdef CONFIG_SCHED_DEBUG
-        printk("wrrsched: %s:%d switched to front.\n", p->comm,p->pid);
+            printk("wrrsched: %s:%d switched to front.\n", p->comm, p->pid);
 #endif
+        }
     }
 }
 
@@ -423,8 +423,8 @@ void init_tg_wrr_entry(struct task_group* tg, struct wrr_rq* wrr_rq,
                        struct sched_wrr_entity* parent) {
     struct rq* rq = cpu_rq(cpu);
 
-    wrr_rq->rq = rq;
-    wrr_rq->tg = tg;
+    wrr_rq->rq      = rq;
+    wrr_rq->tg      = tg;
     tg->wrr_rq[cpu] = wrr_rq;
     tg->wrr_se[cpu] = wrr_se;
     if (!wrr_se)

@@ -52,6 +52,7 @@ static unsigned int get_rr_interval_wrr(struct rq* rq,
 void init_wrr_rq(struct wrr_rq* wrr_rq, struct rq* rq);
 
 /* 4. Main implementation */
+static int wrr_throttled(void);
 static void requeue_task_wrr(struct rq* rq, struct task_struct* p, int head);
 static void enqueue_wrr_entity(struct sched_wrr_entity* wrr_se, bool head);
 static void dequeue_wrr_entity(struct sched_wrr_entity* wrr_se);
