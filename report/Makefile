@@ -4,4 +4,4 @@ report.pdf:
 	xelatex report.tex
 	xelatex report.tex
 clean:
-	rm report.aux report.log report.pdf
+	rm -rf report.aux report.log report.pdf

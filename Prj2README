@@ -1,0 +1,89 @@
+Project 2
+
+Weihao Jiang, 519021911045
+
+=== File tree structure ===
+
+.
+├── android.source.sh           Contains path, edit this with its internal 
+│                               instructions and source to build and run.
+├── compile_counter.py          Auxilliary script for logging.
+├── Makefile                    Makefile for building, cf. instructions below
+├── patch                       This folder contains all files changed 
+│   ├── arch                    in Linux kernel.
+│   ...                         For detailed changes, refer to report.pdf
+│   └── PATCHING                Guide to patch the kernel.
+├── Prj2README                  This file.
+├── report                      This folder contains all original pictures
+│   ├── bg-to-fg.png            used in the report. You can build the
+│   ├── CFS-example.png         report.pdf from these files.
+│   ├── (And other png's)
+│   ├── Makefile
+│   ├── report.md
+│   └── report.tex
+├── report.pdf                  This is the report file.
+├── run-sim.sh                  Please refer to this to start emulation.
+├── utils                       This is the utility programs
+│   ├── chshed.exc              Scheduler changer
+│   │   └── jni
+│   │       ├── Android.mk
+│   │       └── chshed.c
+│   ├── lshed.exc               Scheduler information viewer
+│   │   └── jni
+│   │       ├── Android.mk
+│   │       └── lshed.c
+│   ├── Makefile                To build these utility programs
+│   └── proctest.exc            proctest testing program (cf. report.pdf)
+│       └── jni
+│           ├── Android.mk
+│           └── proctest.c
+└── zImages                     Empty folder. Leave this for compiling.
+
+=== Build and run guide ===
+
+First edit the android.source.sh with its internal instructions, and 
+`source ./android.source.sh` to have the correct environment variables
+and PATH.
+
+With the Makefile in the root folder, you may use these commands to build:
+
+First you need to config the kernel.
+
+make config                 The configuation settings with debug info.
+make menuconfig             The CLI interface for further configuations.
+
+Then you can build the kernel and the utility programs.
+
+make                        Build all kernels and the utility programs.
+make all
+
+make build                  Build the kernel with debug info and the utility
+                            programs.
+make build_nodebug          Build the kernel without debug info and the 
+                            utility programs. (for faster testing)
+make utils                  Build the utility programs
+
+If you want to check the code with AVD please 
+-    create an AVD named OSPrj519021911045 and run `./run-sim.sh` separately.
+- or create an avd.lock file in the directory to indicate AVD is created.
+
+Then you may use this command:
+
+make push                   Push the utility programs to the AVD.
+
+For more information, please refer to the Makefile file.
+
+To utilize our utility programs:
+
+lshed: Scheduler information viewer
+chshed: Scheduler changer
+
+    These two programs have no arguments. Just run and fill in according to
+    the prompt.
+
+proctest: Our testing program
+    
+    ./proctest <SUBPROCESS_NUMBER> <CHILD_PROCESS_SCHEDULER> <CHILD_STEP>
+    SUBPROCESS_NUMBER: this will set how many subprocesses will be created.
+    CHILD_PROCESS_SCHEDULER: set the subprocesses' scheduling policy.
+    CHILD_STEP: this is used to generate different priority/weight.
